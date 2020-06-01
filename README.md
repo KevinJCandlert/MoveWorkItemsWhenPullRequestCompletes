@@ -3,6 +3,8 @@ This is how I found an alternative solution for the annoying 'Complete associate
 
 However, we want to move our work items to a column in our board to mark the work item ready for QA. It's not done and shouldn't be closed after the pull request is done.
 
+![](docs/images/pull_request_complete.gif)
+
 In a perfect world where each pull request branch could be deployed and tested individually then yes, that would be awesome. However, in the projects I work on we can't do that.
 
 ### Webhooks is the key
