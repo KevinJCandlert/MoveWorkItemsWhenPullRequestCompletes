@@ -1,37 +1,52 @@
-## Welcome to GitHub Pages
+## Move Work Items When Pull Request Completes
+This is how I found an alternative solution for the annoying 'Complete associated work items after merging'. When the checkbox for 'Complete associated work items after merging' is ticked the work item gets its status changed to closed.
 
-You can use the [editor on GitHub](https://github.com/KevinJCandlert/MoveWorkItemsWhenPullRequestCompletes/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
+However, we want to move our work items to a column in our board to mark the work item ready for QA. It's not done and shouldn't be closed after the pull request is done.
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+In a perfect world where each pull request branch could be deployed and tested individually then yes, that would be awesome. However, in the projects I work on we can't do that.
 
-### Markdown
+### Webhooks is the key
+Azure DevOps has webhooks for different kinds of events built it. I'm using the *Pull request updated*. Using this event we'll get notified whenever the pull requests updates and we can check when $.resource.mergeStatus equals "succeeded" and $.resource.status equals "completed" in the JSON request body.
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+![](docs/images/service_hooks.png)
 
-```markdown
-Syntax highlighted code block
+### Setup
+You need to provide an [personal access token](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops&tabs=preview-page) with **Work Items (Read & Write)** access and the organization name for your DevOps organization. You can find your organization name in the URL.
 
-# Header 1
-## Header 2
-### Header 3
+e.g.
+`https://{YOUR ORGANIZATION NAME HERE}.visualstudio.com/` or `https://dev.azure.com/{YOUR ORGANIZATION NAME HERE}/`
 
-- Bulleted
-- List
+Next, you need to figure out what column you want to be your "Pull Request" column.
+The important thing is that your column is split into "Doing" and "Done".
+This is how our later part of our board looks like:
+![](docs/images/board_columns.png)
 
-1. Numbered
-2. List
+When a work item is done and a pull request is created it is moved to "Merge Request - Doing".
+This board column has a "hidden" ID that we need to use. I find it simple to use the "Get Work Item" API and a dummy work item.
 
-**Bold** and _Italic_ and `Code` text
+1. Create or temporarily move a work item into your "Pull Request - Doing" column.
 
-[Link](url) and ![Image](src)
-```
+1. Go to https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{work_item_id}?api-version=5.1 (Be sure to change `{organization}`, `{project}` and `{work_item_id}` to your variables in the URL above. **Don't worry you can run multiple projects from the same organization on one Azure Function instance**, you'll have to get this unique column ID for each project and pass it as a parameter on the webhook URL)
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+1. Now that you got the JSON response look for two fields that start with "WEF_". This is the column ID you're looking for. `e.g. WEF_CB9F844F2BD65E45BDFE13BD15567897`
 
-### Jekyll Themes
+1. Deploy the Azure Function in this project to Azure in order to receive an HTTP trigger URL. This is the URL which will be our base for the webhook.
+`e.g. myAwesomeAzureDevOpsFunctions.azurewebsites.net/api/MoveWorkItemsWhenPullRequestComplete?`
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/KevinJCandlert/MoveWorkItemsWhenPullRequestCompletes/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+1. We'll append to this base URL with the column name and ID of our "Pull Request" column. The value of the field `System.BoardColumn` or `WEF..._Kanban.Column` from the API response from step 2 and the column ID from step 3 like this: myAwesomeAzureDevOpsFunctions.azurewebsites.net/api/MoveWorkItemsWhenPullRequestComplete?kanbanColumnName={columnName}&kanbanColumnId={columnId}
+(Be sure to change `{columnName}` and `{columnId}` to your variables in the URL above)
 
-### Support or Contact
+1. It's now time to set up the webhook in Azure DevOps. Go to [project settings](https://{organization}.visualstudio.com/{project}/_settings/service Hooks) and click on *Service hooks*.
 
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+1. Click on the green cross ![](docs/images/add_service_hook.png) to add a new service hook and choose WebHooks and click *Next*
+![](docs/images/add_service_hook2.png)
+
+1. On the next dialog change the trigger to be "Pull request updated"
+![](docs/images/add_service_hook3.png)  
+You can also change the "Change" field to "Status Changed". Press *Next*
+
+1. Enter the URL from step 5 and press *Finish*
+
+To try this out, create a new pull request with your newly created or temporarily moved work item from step 1. Make sure the work items are linked to the pull request and when it's completed the pull request should move automagically!
+![](docs/images/pull_request_complete.gif)
+
