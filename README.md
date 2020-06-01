@@ -33,6 +33,8 @@ This board column has a "hidden" ID that we need to use. I find it simple to use
 1. Deploy the Azure Function in this project to Azure in order to receive an HTTP trigger URL. This is the URL which will be our base for the webhook.
 `e.g. myAwesomeAzureDevOpsFunctions.azurewebsites.net/api/MoveWorkItemsWhenPullRequestComplete?`
 
+1. Add two AppSettings/Environment variables of your Azure Function. `Organization` and `PersonalAccessToken`. Set the values of these variables using your organizations name and your personal access token with Work Items (Read & Write) access
+
 1. We'll append to this base URL with the column name and ID of our "Pull Request" column. The value of the field `System.BoardColumn` or `WEF..._Kanban.Column` from the API response from step 2 and the column ID from step 3 like this: myAwesomeAzureDevOpsFunctions.azurewebsites.net/api/MoveWorkItemsWhenPullRequestComplete?kanbanColumnName={columnName}&kanbanColumnId={columnId}
 (Be sure to change `{columnName}` and `{columnId}` to your variables in the URL above)
 
@@ -45,8 +47,10 @@ This board column has a "hidden" ID that we need to use. I find it simple to use
 ![](docs/images/add_service_hook3.png)  
 You can also change the "Change" field to "Status Changed". Press *Next*
 
-1. Enter the URL from step 5 and press *Finish*
+1. Enter the URL from step 6 and press *Finish*
 
 To try this out, create a new pull request with your newly created or temporarily moved work item from step 1. Make sure the work items are linked to the pull request and when it's completed the pull request should move automagically!
 ![](docs/images/pull_request_complete.gif)
 
+
+If you have multiple organizations and only want to run one Azure Function instance you could woth a little bit of code change and move the Organization and PersonalAccessToken environment variables to query string variables. That will centralize all your configuration in the Service hooks pages for each individual project.
